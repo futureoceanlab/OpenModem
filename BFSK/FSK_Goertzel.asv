@@ -1,0 +1,70 @@
+% FSK Demodulation with Goertzel Algorithm
+% Based on https://www.embedded.com/the-goertzel-algorithm/
+% http://www.mstarlabs.com/dsp/goertzel/goertzel.html
+
+% ------------- FSK Modulation ----------------
+% Parameters
+bitmap = [1 0];
+baudrate = 200;
+sampleRateTx = 100000*5;
+sampleRateRx = 100000;
+f1 = 25000;
+1
+f2 = 28000;
+0
+AC = 5;
+AN = 1;
+
+% Rate breakdown
+ppb = 1/baudrate;
+pps = 1/sampleRateTx;
+spb = ppb/pps;
+
+t_bit=ppb/spb:ppb/spb:ppb;                          % time matrix for bit                
+t_message=ppb/spb:ppb/spb:length(bitmap)*ppb;       % time matrix for message
+mesdur = max(t_message);
+
+% Binary to digital signals 
+bit = [];
+for n = 1:1:length(bitmap)
+    if bitmap(n) == 1;
+        se=ones(1, int16(spb));
+    else bitmap(n) == 0;
+        se=zeros(1, int16(spb));
+    end
+    bit = [bit se];
+    
+end
+subplot(3,2,1);
+plot(t_message,bit,'lineWidth',2.5);grid on;
+axis([ 0 ppb*length(bitmap) -.5 1.5]);
+ylabel('logic level');
+xlabel(' time(sec)');
+title('Digital source');
+
+% Modulated Signal
+mSig = [];
+for (i=1:1:length(bitmap))
+    if (bitmap(i)==1)
+        y=AC*cos(2*pi*f1*t_bit);
+    else
+        y=AC*cos(2*pi*f2*t_bit);
+    end
+    mSig=[mSig y];
+end
+subplot(3,2,2);
+plot(t_message,mSig);
+axis ([0 max(t_message) (AC+1)*-1 (AC+1)]);
+xlabel('time(sec)');
+ylabel('SS(V)');
+title('FSK modulated signal for TX');
+disp(sprintf('Signal sent\n'));
+
+% Multipath interference
+mpCoeff = [1 0 0 0 0 0.3*exp(j*0.2*pi)];
+mpSig = filter(mpCoeff, 1, mSig)
+
+% sampler frequency and carrier frequency 
+rSig = mSig;
+
+
