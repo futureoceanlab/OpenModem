@@ -1,8 +1,8 @@
 % ----------- FSK Modulation ---------------
-clear
+clear; clf;
 bitMap = [1 0 1 0 1 0 0 1]
-f0 = 25000;
-f1 = 30000;
+f0 = 24000;
+f1 = 28000;
 targetFreq = [f0 f1];
 
 sigAmp = 1;
@@ -13,7 +13,7 @@ sampleRateRx = 100000; %Receive ADC sample rate
 samplePeriodTx = 1/sampleRateTx; %Sample Period transmitter
 samplePeriodRx = 1/sampleRateRx; %Sample period receiver
 
-bitRate = 1000; %For now, but it should be 200
+bitRate = 500; %For now, but it should be 200
 bitPeriod = 1/bitRate;
 bitTimeVec = 0:bitPeriod:length(bitMap); %Time Vector for digital Bits
 mesDur = length(bitMap)*bitPeriod; %Total time of message
@@ -37,8 +37,10 @@ for i = 1:1:length(bitMap)
 end
 
 subplot (4, 2, 1);
-plot(totalSampleTime, dsig)
+plot(totalSampleTime, dsig, 'LineWidth', 2)
 title('Digital Signal')
+ylabel('Amplitude')
+xlabel('Time (seconds)')
 
 % Modulated Binary FSK Signal
 sig = [];
@@ -54,41 +56,52 @@ end
 subplot(4, 2, 3);
 plot(totalSampleTime, sig)
 title('FSK Modulated Signal')
+ylabel('Amplitude')
+xlabel('Time (seconds)')
 
 % Multipath Effect
-mpCoeff = [1 zeros(1, 1000) 0.8 0.3*exp(i*0.3*pi) zeros(1, 1000) 0.5];
+mpCoeff = [1 zeros(1, 1000) 0.8 zeros(1, 300) 0.5 zeros(1, 1000) 0.2 zeros(1, 3000) 0.1];
 mpSig = filter(mpCoeff, 1, sig);
-%impz(mpCoeff, 1)
-
 subplot(4, 2, 5);
+impz(mpCoeff, 1)
+title('Multipath Transfer Function')
+
+subplot(4, 2, 7);
 plot(mpSig + sig);
 title('FSK Modulated Signal with Multipath')
+ylabel('Amplitude')
+xlabel('Time (seconds)')
 
 % White Noise Effect
 noise = noiseAmp*randn(1, numel(mpSig));
 
 % Doppler Effect
 
-% Power spectrum of signal 
-subplot(4, 2, 7);
-n = 2^nextpow2(length(sig));
-Y = fft(sig, n);
-f = sampleRateTx*(0:(n/2))/n;
-P = abs(Y/n);
-plot(f, P(1:n/2+1))
-title('Power Spectrum of FSK channeled Signal')
-
 % ----------- FSK Demodulation ---------------
 % Receiver sample data
 rxSig = resample(mpSig, sampleRateRx, sampleRateTx);
-%sampleTimeRxVec = 0:length
+% Received Sample time
+rxSampleTimeVec = (0:length(rxSig)-1)*mesDur/length(rxSig);
 subplot(4, 2, 2);
-plot(rxSig)
+plot(rxSampleTimeVec, rxSig)
 title('Received FSK signal')
+ylabel('Amplitude')
+xlabel('Time (seconds)')
 
-% Goertzel Init 
+% Power spectrum of signal 
+subplot(4, 2, 4);
+n = 2^nextpow2(length(rxSig));
+Y = fft(rxSig, n);
+f = sampleRateRx*(0:(n/2))/n;
+P = abs(Y/n);
+plot(f, P(1:n/2+1))
+title('Receiver Signal Power Spectrum')
+ylabel('Amplitude')
+xlabel('Frequency (Hz)')
+
+% Goertzel Running 
 mag = [];
-binSize = 15;
+binSize = 20;
 for i = (1:length(targetFreq))
     single = [];
     k = round(0.5 + binSize*targetFreq(i)/sampleRateRx);
@@ -109,10 +122,29 @@ for i = (1:length(targetFreq))
     mag  = [mag; single];
 end
 
-subplot(4,2,4)
-plot(mag(1,:))
-hold on
-plot(mag(2,:))
+% Demodulated Digital Signal time
+deTimeVec = (0:length(mag)-1)*mesDur/length(mag);
+
+subplot(4,2,6)
+plot(deTimeVec, mag(1,:), deTimeVec, mag(2,:))
+title("Goertzel Result")
+ylabel('Amplitude')
+xlabel('Time (seconds)')
+
+% Demodulated FSK Signal
+demodSig = [];
+for (i=1:length(mag))
+    [M, I] = max(mag(:,i));
+    demodSig = [demodSig I];
+end
+
+subplot(4,2,8)
+plot(deTimeVec, demodSig, 'm', 'LineWidth', 2)
+title("Demodulated FSK Signal")
+ylabel('Amplitude')
+xlabel('Time (seconds)')
+
+
 
 
 
